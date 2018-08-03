@@ -13,6 +13,7 @@ namespace Grido\DataSources;
 
 use Grido\Exception;
 use Grido\Components\Filters\Condition;
+use Nette\SmartObject;
 
 /**
  * Nette Database data source.
@@ -25,152 +26,154 @@ use Grido\Components\Filters\Condition;
  * @property-read int $count
  * @property-read array $data
  */
-class NetteDatabase extends \Nette\Object implements IDataSource
+class NetteDatabase implements IDataSource
 {
-    /** @var \Nette\Database\Table\Selection */
-    protected $selection;
+	use SmartObject;
 
-    /**
-     * @param \Nette\Database\Table\Selection $selection
-     */
-    public function __construct(\Nette\Database\Table\Selection $selection)
-    {
-        $this->selection = $selection;
-    }
+	/** @var \Nette\Database\Table\Selection */
+	protected $selection;
 
-    /**
-     * @return \Nette\Database\Table\Selection
-     */
-    public function getSelection()
-    {
-        return $this->selection;
-    }
+	/**
+	 * @param \Nette\Database\Table\Selection $selection
+	 */
+	public function __construct(\Nette\Database\Table\Selection $selection)
+	{
+		$this->selection = $selection;
+	}
 
-    /**
-     * @param Condition $condition
-     * @param \Nette\Database\Table\Selection $selection
-     */
-    protected function makeWhere(Condition $condition, \Nette\Database\Table\Selection $selection = NULL)
-    {
-        $selection = $selection === NULL
-            ? $this->selection
-            : $selection;
+	/**
+	 * @return \Nette\Database\Table\Selection
+	 */
+	public function getSelection()
+	{
+		return $this->selection;
+	}
 
-        if ($condition->callback) {
-            call_user_func_array($condition->callback, array($condition->value, $selection));
-        } else {
-            call_user_func_array(array($selection, 'where'), $condition->__toArray());
-        }
-    }
+	/**
+	 * @param Condition $condition
+	 * @param \Nette\Database\Table\Selection $selection
+	 */
+	protected function makeWhere(Condition $condition, \Nette\Database\Table\Selection $selection = NULL)
+	{
+		$selection = $selection === NULL
+			? $this->selection
+			: $selection;
 
-    /********************************** inline editation helpers ************************************/
+		if ($condition->callback) {
+			call_user_func_array($condition->callback, array($condition->value, $selection));
+		} else {
+			call_user_func_array(array($selection, 'where'), $condition->__toArray());
+		}
+	}
 
-    /**
-     * Default callback for an inline editation save.
-     * @param mixed $id
-     * @param array $values
-     * @param string $idCol
-     * @return bool
-     */
-    public function update($id, array $values, $idCol)
-    {
-        return (bool) $this->getSelection()
-            ->where(array($idCol => $id)) //TODO: column escaping requires https://github.com/nette/nette/issues/1324
-            ->update($values);
-    }
+	/********************************** inline editation helpers ************************************/
 
-    /**
-     * Default callback used when an editable column has customRender.
-     * @param mixed $id
-     * @param string $idCol
-     * @return \Nette\Database\Table\ActiveRow|bool
-     */
-    public function getRow($id, $idCol)
-    {
-        return $this->getSelection()
-            ->where(array($idCol => $id)) //TODO: column escaping requires https://github.com/nette/nette/issues/1324
-            ->fetch();
-    }
+	/**
+	 * Default callback for an inline editation save.
+	 * @param mixed $id
+	 * @param array $values
+	 * @param string $idCol
+	 * @return bool
+	 */
+	public function update($id, array $values, $idCol)
+	{
+		return (bool) $this->getSelection()
+			->where(array($idCol => $id))//TODO: column escaping requires https://github.com/nette/nette/issues/1324
+			->update($values);
+	}
 
-    /********************************** interface IDataSource ************************************/
+	/**
+	 * Default callback used when an editable column has customRender.
+	 * @param mixed $id
+	 * @param string $idCol
+	 * @return \Nette\Database\Table\ActiveRow|bool
+	 */
+	public function getRow($id, $idCol)
+	{
+		return $this->getSelection()
+			->where(array($idCol => $id))//TODO: column escaping requires https://github.com/nette/nette/issues/1324
+			->fetch();
+	}
 
-    /**
-     * @return int
-     */
-    public function getCount()
-    {
-        return (int) $this->selection->count('*');
-    }
+	/********************************** interface IDataSource ************************************/
 
-    /**
-     * @return array
-     */
-    public function getData()
-    {
-        return $this->selection;
-    }
+	/**
+	 * @return int
+	 */
+	public function getCount()
+	{
+		return (int) $this->selection->count('*');
+	}
 
-    /**
-     * @param array $conditions
-     */
-    public function filter(array $conditions)
-    {
-        foreach ($conditions as $condition) {
-            $this->makeWhere($condition);
-        }
-    }
+	/**
+	 * @return array
+	 */
+	public function getData()
+	{
+		return $this->selection;
+	}
 
-    /**
-     * @param int $offset
-     * @param int $limit
-     */
-    public function limit($offset, $limit)
-    {
-        $this->selection->limit($limit, $offset);
-    }
+	/**
+	 * @param array $conditions
+	 */
+	public function filter(array $conditions)
+	{
+		foreach ($conditions as $condition) {
+			$this->makeWhere($condition);
+		}
+	}
 
-    /**
-     * @param array $sorting
-     */
-    public function sort(array $sorting)
-    {
-        foreach ($sorting as $column => $sort) {
-            $this->selection->order("$column $sort");
-        }
-    }
+	/**
+	 * @param int $offset
+	 * @param int $limit
+	 */
+	public function limit($offset, $limit)
+	{
+		$this->selection->limit($limit, $offset);
+	}
 
-    /**
-     * @param mixed $column
-     * @param array $conditions
-     * @param int $limit
-     * @return array
-     * @throws Exception
-     */
-    public function suggest($column, array $conditions, $limit)
-    {
-        $selection = clone $this->selection;
-        is_string($column) && $selection->select("DISTINCT $column")->order($column);
-        $selection->limit($limit);
+	/**
+	 * @param array $sorting
+	 */
+	public function sort(array $sorting)
+	{
+		foreach ($sorting as $column => $sort) {
+			$this->selection->order("$column $sort");
+		}
+	}
 
-        foreach ($conditions as $condition) {
-            $this->makeWhere($condition, $selection);
-        }
+	/**
+	 * @param mixed $column
+	 * @param array $conditions
+	 * @param int $limit
+	 * @return array
+	 * @throws Exception
+	 */
+	public function suggest($column, array $conditions, $limit)
+	{
+		$selection = clone $this->selection;
+		is_string($column) && $selection->select("DISTINCT $column")->order($column);
+		$selection->limit($limit);
 
-        $items = array();
-        foreach ($selection as $row) {
-            if (is_string($column)) {
-                $value = (string) $row[$column];
-            } elseif (is_callable($column)) {
-                $value = (string) $column($row);
-            } else {
-                $type = gettype($column);
-                throw new Exception("Column of suggestion must be string or callback, $type given.");
-            }
+		foreach ($conditions as $condition) {
+			$this->makeWhere($condition, $selection);
+		}
 
-            $items[$value] = \Latte\Runtime\Filters::escapeHtml($value);
-        }
+		$items = array();
+		foreach ($selection as $row) {
+			if (is_string($column)) {
+				$value = (string) $row[$column];
+			} elseif (is_callable($column)) {
+				$value = (string) $column($row);
+			} else {
+				$type = gettype($column);
+				throw new Exception("Column of suggestion must be string or callback, $type given.");
+			}
 
-        is_callable($column) && sort($items);
-        return array_values($items);
-    }
+			$items[$value] = \Latte\Runtime\Filters::escapeHtml($value);
+		}
+
+		is_callable($column) && sort($items);
+		return array_values($items);
+	}
 }

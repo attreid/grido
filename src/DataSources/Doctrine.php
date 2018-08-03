@@ -14,6 +14,7 @@ namespace Grido\DataSources;
 use Grido\Exception;
 use Grido\Components\Filters\Condition;
 
+use Nette\SmartObject;
 use Nette\Utils\Strings;
 use Nette\Utils\Random;
 use Doctrine\ORM\Tools\Pagination\Paginator;
@@ -32,8 +33,10 @@ use Doctrine\ORM\Tools\Pagination\Paginator;
  * @property-read int $count
  * @property-read array $data
  */
-class Doctrine extends \Nette\Object implements IDataSource
+class Doctrine implements IDataSource
 {
+	use SmartObject;
+
     /** @var \Doctrine\ORM\QueryBuilder */
     protected $qb;
 
@@ -61,13 +64,13 @@ class Doctrine extends \Nette\Object implements IDataSource
      */
     public function __construct(\Doctrine\ORM\QueryBuilder $qb, array $filterMapping = NULL, array $sortMapping = NULL)
     {
-        $this->qb = $qb;
-        $this->filterMapping = $filterMapping;
-        $this->sortMapping = $sortMapping;
+	    $this->qb = $qb;
+	    $this->filterMapping = $filterMapping;
+	    $this->sortMapping = $sortMapping;
 
-        if (!$this->sortMapping && $this->filterMapping) {
-            $this->sortMapping = $this->filterMapping;
-        }
+	    if (!$this->sortMapping && $this->filterMapping) {
+		    $this->sortMapping = $this->filterMapping;
+	    }
     }
 
     /**
@@ -76,8 +79,8 @@ class Doctrine extends \Nette\Object implements IDataSource
      */
     public function setUseOutputWalkers($useOutputWalkers)
     {
-        $this->useOutputWalkers = $useOutputWalkers;
-        return $this;
+	    $this->useOutputWalkers = $useOutputWalkers;
+	    return $this;
     }
 
     /**
@@ -86,8 +89,8 @@ class Doctrine extends \Nette\Object implements IDataSource
      */
     public function setFetchJoinCollection($fetchJoinCollection)
     {
-        $this->fetchJoinCollection = $fetchJoinCollection;
-        return $this;
+	    $this->fetchJoinCollection = $fetchJoinCollection;
+	    return $this;
     }
 
     /**
@@ -95,7 +98,7 @@ class Doctrine extends \Nette\Object implements IDataSource
      */
     public function getQuery()
     {
-        return $this->qb->getQuery();
+	    return $this->qb->getQuery();
     }
 
     /**
@@ -103,7 +106,7 @@ class Doctrine extends \Nette\Object implements IDataSource
      */
     public function getQb()
     {
-        return $this->qb;
+	    return $this->qb;
     }
 
     /**
@@ -111,7 +114,7 @@ class Doctrine extends \Nette\Object implements IDataSource
      */
     public function getFilterMapping()
     {
-        return $this->filterMapping;
+	    return $this->filterMapping;
     }
 
     /**
@@ -119,7 +122,7 @@ class Doctrine extends \Nette\Object implements IDataSource
      */
     public function getSortMapping()
     {
-        return $this->sortMapping;
+	    return $this->sortMapping;
     }
 
     /**
@@ -128,40 +131,40 @@ class Doctrine extends \Nette\Object implements IDataSource
      */
     protected function makeWhere(Condition $condition, \Doctrine\ORM\QueryBuilder $qb = NULL)
     {
-        $qb = $qb === NULL
-            ? $this->qb
-            : $qb;
+	    $qb = $qb === NULL
+		    ? $this->qb
+		    : $qb;
 
-        if ($condition->callback) {
-            return call_user_func_array($condition->callback, array($condition->value, $qb));
-        }
+	    if ($condition->callback) {
+		    return call_user_func_array($condition->callback, array($condition->value, $qb));
+	    }
 
-        $columns = $condition->column;
-        foreach ($columns as $key => $column) {
-            if (!Condition::isOperator($column)) {
-                $columns[$key] = (isset($this->filterMapping[$column])
-                    ? $this->filterMapping[$column]
-                    : (Strings::contains($column, ".")
-                        ? $column
-                        : current($this->qb->getRootAliases()) . '.' . $column));
-            }
-        }
+	    $columns = $condition->column;
+	    foreach ($columns as $key => $column) {
+		    if (!Condition::isOperator($column)) {
+			    $columns[$key] = (isset($this->filterMapping[$column])
+				    ? $this->filterMapping[$column]
+				    : (Strings::contains($column, ".")
+					    ? $column
+					    : current($this->qb->getRootAliases()) . '.' . $column));
+		    }
+	    }
 
-        $condition->setColumn($columns);
-        list($where) = $condition->__toArray(NULL, NULL, FALSE);
+	    $condition->setColumn($columns);
+	    list($where) = $condition->__toArray(NULL, NULL, FALSE);
 
-        $rand = $this->getRand();
-        $where = preg_replace_callback('/\?/', function() use ($rand) {
-            static $i = -1;
-            $i++;
-            return ":$rand{$i}";
-        }, $where);
+	    $rand = $this->getRand();
+	    $where = preg_replace_callback('/\?/', function () use ($rand) {
+		    static $i = -1;
+		    $i++;
+		    return ":$rand{$i}";
+	    }, $where);
 
-        $qb->andWhere($where);
+	    $qb->andWhere($where);
 
-        foreach ($condition->getValueForColumn() as $i => $val) {
-            $qb->setParameter("$rand{$i}", $val);
-        }
+	    foreach ($condition->getValueForColumn() as $i => $val) {
+		    $qb->setParameter("$rand{$i}", $val);
+	    }
     }
 
     /**
@@ -169,12 +172,12 @@ class Doctrine extends \Nette\Object implements IDataSource
      */
     protected function getRand()
     {
-        do {
-            $rand = Random::generate(4, 'a-z');
-        } while (isset($this->rand[$rand]));
+	    do {
+		    $rand = Random::generate(4, 'a-z');
+	    } while (isset($this->rand[$rand]));
 
-        $this->rand[$rand] = $rand;
-        return $rand;
+	    $this->rand[$rand] = $rand;
+	    return $rand;
     }
 
     /*********************************** interface IDataSource ************************************/
@@ -184,10 +187,10 @@ class Doctrine extends \Nette\Object implements IDataSource
      */
     public function getCount()
     {
-        $paginator = new Paginator($this->getQuery(), $this->fetchJoinCollection);
-        $paginator->setUseOutputWalkers($this->useOutputWalkers);
+	    $paginator = new Paginator($this->getQuery(), $this->fetchJoinCollection);
+	    $paginator->setUseOutputWalkers($this->useOutputWalkers);
 
-        return $paginator->count();
+	    return $paginator->count();
     }
 
     /**
@@ -198,21 +201,21 @@ class Doctrine extends \Nette\Object implements IDataSource
      */
     public function getData()
     {
-        $data = array();
+	    $data = array();
 
-        // Paginator is better if the query uses ManyToMany associations
-        $result = $this->qb->getMaxResults() !== NULL || $this->qb->getFirstResult() !== NULL
-            ? new Paginator($this->getQuery())
-            : $this->qb->getQuery()->getResult();
+	    // Paginator is better if the query uses ManyToMany associations
+	    $result = $this->qb->getMaxResults() !== NULL || $this->qb->getFirstResult() !== NULL
+		    ? new Paginator($this->getQuery())
+		    : $this->qb->getQuery()->getResult();
 
-        foreach ($result as $item) {
-            // Return only entity itself
-            $data[] = is_array($item)
-                ? $item[0]
-                : $item;
-        }
+	    foreach ($result as $item) {
+		    // Return only entity itself
+		    $data[] = is_array($item)
+			    ? $item[0]
+			    : $item;
+	    }
 
-        return $data;
+	    return $data;
     }
 
     /**
@@ -221,9 +224,9 @@ class Doctrine extends \Nette\Object implements IDataSource
      */
     public function filter(array $conditions)
     {
-        foreach ($conditions as $condition) {
-            $this->makeWhere($condition);
-        }
+	    foreach ($conditions as $condition) {
+		    $this->makeWhere($condition);
+	    }
     }
 
     /**
@@ -233,8 +236,8 @@ class Doctrine extends \Nette\Object implements IDataSource
      */
     public function limit($offset, $limit)
     {
-        $this->qb->setFirstResult($offset)
-            ->setMaxResults($limit);
+	    $this->qb->setFirstResult($offset)
+		    ->setMaxResults($limit);
     }
 
     /**
@@ -243,13 +246,13 @@ class Doctrine extends \Nette\Object implements IDataSource
      */
     public function sort(array $sorting)
     {
-        foreach ($sorting as $key => $value) {
-            $column = isset($this->sortMapping[$key])
-                ? $this->sortMapping[$key]
-                : current($this->qb->getRootAliases()) . '.' . $key;
+	    foreach ($sorting as $key => $value) {
+		    $column = isset($this->sortMapping[$key])
+			    ? $this->sortMapping[$key]
+			    : current($this->qb->getRootAliases()) . '.' . $key;
 
-            $this->qb->addOrderBy($column, $value);
-        }
+		    $this->qb->addOrderBy($column, $value);
+	    }
     }
 
     /**
@@ -261,37 +264,37 @@ class Doctrine extends \Nette\Object implements IDataSource
      */
     public function suggest($column, array $conditions, $limit)
     {
-        $qb = clone $this->qb;
-        $qb->setMaxResults($limit);
+	    $qb = clone $this->qb;
+	    $qb->setMaxResults($limit);
 
-        if (is_string($column)) {
-            $mapping = isset($this->filterMapping[$column])
-                ? $this->filterMapping[$column]
-                : current($qb->getRootAliases()) . '.' . $column;
+	    if (is_string($column)) {
+		    $mapping = isset($this->filterMapping[$column])
+			    ? $this->filterMapping[$column]
+			    : current($qb->getRootAliases()) . '.' . $column;
 
-            $qb->select($mapping)->distinct()->orderBy($mapping);
-        }
+		    $qb->select($mapping)->distinct()->orderBy($mapping);
+	    }
 
-        foreach ($conditions as $condition) {
-            $this->makeWhere($condition, $qb);
-        }
+	    foreach ($conditions as $condition) {
+		    $this->makeWhere($condition, $qb);
+	    }
 
-        $items = array();
-        $data = $qb->getQuery()->getScalarResult();
-        foreach ($data as $row) {
-            if (is_string($column)) {
-                $value = (string) current($row);
-            } elseif (is_callable($column)) {
-                $value = (string) $column($row);
-            } else {
-                $type = gettype($column);
-                throw new Exception("Column of suggestion must be string or callback, $type given.");
-            }
+	    $items = array();
+	    $data = $qb->getQuery()->getScalarResult();
+	    foreach ($data as $row) {
+		    if (is_string($column)) {
+			    $value = (string) current($row);
+		    } elseif (is_callable($column)) {
+			    $value = (string) $column($row);
+		    } else {
+			    $type = gettype($column);
+			    throw new Exception("Column of suggestion must be string or callback, $type given.");
+		    }
 
-            $items[$value] = \Latte\Runtime\Filters::escapeHtml($value);
-        }
+		    $items[$value] = \Latte\Runtime\Filters::escapeHtml($value);
+	    }
 
-        is_callable($column) && sort($items);
-        return array_values($items);
+	    is_callable($column) && sort($items);
+	    return array_values($items);
     }
 }

@@ -12,6 +12,7 @@
 namespace Grido\DataSources;
 
 use Grido\Exception;
+use Nette\SmartObject;
 
 /**
  * Model of data source.
@@ -22,49 +23,51 @@ use Grido\Exception;
  *
  * @property-read IDataSource $dataSource
  */
-class Model extends \Nette\Object
+class Model
 {
-    /** @var array */
-    public $callback = array();
+	use SmartObject;
 
-    /** @var IDataSource */
-    protected $dataSource;
+	/** @var array */
+	public $callback = array();
 
-    /**
-     * @param mixed $model
-     * @throws Exception
-     */
-    public function __construct($model)
-    {
-        if ($model instanceof \DibiFluent) {
-            $dataSource = new DibiFluent($model);
-        } elseif ($model instanceof \Nette\Database\Table\Selection) {
-            $dataSource = new NetteDatabase($model);
-        } elseif ($model instanceof \Doctrine\ORM\QueryBuilder) {
-            $dataSource = new Doctrine($model);
-        } elseif (is_array($model)) {
-            $dataSource = new ArraySource($model);
-        } elseif ($model instanceof IDataSource) {
-            $dataSource = $model;
-        } else {
-            throw new Exception('Model must implement \Grido\DataSources\IDataSource.');
-        }
+	/** @var IDataSource */
+	protected $dataSource;
 
-        $this->dataSource = $dataSource;
-    }
+	/**
+	 * @param mixed $model
+	 * @throws Exception
+	 */
+	public function __construct($model)
+	{
+		if ($model instanceof \DibiFluent) {
+			$dataSource = new DibiFluent($model);
+		} elseif ($model instanceof \Nette\Database\Table\Selection) {
+			$dataSource = new NetteDatabase($model);
+		} elseif ($model instanceof \Doctrine\ORM\QueryBuilder) {
+			$dataSource = new Doctrine($model);
+		} elseif (is_array($model)) {
+			$dataSource = new ArraySource($model);
+		} elseif ($model instanceof IDataSource) {
+			$dataSource = $model;
+		} else {
+			throw new Exception('Model must implement \Grido\DataSources\IDataSource.');
+		}
 
-    /**
-     * @return \IDataSource
-     */
-    public function getDataSource()
-    {
-        return $this->dataSource;
-    }
+		$this->dataSource = $dataSource;
+	}
 
-    public function __call($method, $args)
-    {
-        return isset($this->callback[$method])
-            ? call_user_func_array($this->callback[$method], array($this->dataSource, $args))
-            : call_user_func_array(array($this->dataSource, $method), $args);
-    }
+	/**
+	 * @return \IDataSource
+	 */
+	public function getDataSource()
+	{
+		return $this->dataSource;
+	}
+
+	public function __call($method, $args)
+	{
+		return isset($this->callback[$method])
+			? call_user_func_array($this->callback[$method], array($this->dataSource, $args))
+			: call_user_func_array(array($this->dataSource, $method), $args);
+	}
 }

@@ -12,6 +12,7 @@
 namespace Grido\Translations;
 
 use Grido\Exception;
+use Nette\SmartObject;
 
 /**
  * Simple file translator.
@@ -20,55 +21,57 @@ use Grido\Exception;
  * @subpackage  Translations
  * @author      Petr Bugyík
  */
-class FileTranslator extends \Nette\Object implements \Nette\Localization\ITranslator
+class FileTranslator implements \Nette\Localization\ITranslator
 {
-    /** @var array */
-    protected $translations = array();
+	use SmartObject;
 
-    /**
-     * @param string $lang
-     * @param array $translations
-     */
-    public function __construct($lang = 'en', array $translations = array())
-    {
-        $translations = $translations + $this->getTranslationsFromFile($lang);
-        $this->translations = $translations;
-    }
+	/** @var array */
+	protected $translations = array();
 
-    /**
-     * Sets language of translation.
-     * @param string $lang
-     */
-    public function setLang($lang)
-    {
-        $this->translations = $this->getTranslationsFromFile($lang);
-    }
+	/**
+	 * @param string $lang
+	 * @param array $translations
+	 */
+	public function __construct($lang = 'en', array $translations = array())
+	{
+		$translations = $translations + $this->getTranslationsFromFile($lang);
+		$this->translations = $translations;
+	}
 
-    /**
-     * @param string $lang
-     * @throws Exception
-     * @return array
-     */
-    protected function getTranslationsFromFile($lang)
-    {
-        if (!$translations = @include (__DIR__ . "/$lang.php")) {
-            throw new Exception("Translations for language '$lang' not found.");
-        }
+	/**
+	 * Sets language of translation.
+	 * @param string $lang
+	 */
+	public function setLang($lang)
+	{
+		$this->translations = $this->getTranslationsFromFile($lang);
+	}
 
-        return $translations;
-    }
+	/**
+	 * @param string $lang
+	 * @throws Exception
+	 * @return array
+	 */
+	protected function getTranslationsFromFile($lang)
+	{
+		if (!$translations = @include(__DIR__ . "/$lang.php")) {
+			throw new Exception("Translations for language '$lang' not found.");
+		}
 
-    /************************* interface \Nette\Localization\ITranslator **************************/
+		return $translations;
+	}
 
-    /**
-     * @param string $message
-     * @param int $count plural
-     * @return string
-     */
-    public function translate($message, $count = NULL)
-    {
-        return isset($this->translations[$message])
-            ? $this->translations[$message]
-            : $message;
-    }
+	/************************* interface \Nette\Localization\ITranslator **************************/
+
+	/**
+	 * @param string $message
+	 * @param int $count plural
+	 * @return string
+	 */
+	public function translate($message, $count = NULL)
+	{
+		return isset($this->translations[$message])
+			? $this->translations[$message]
+			: $message;
+	}
 }

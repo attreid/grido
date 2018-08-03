@@ -12,6 +12,7 @@
 namespace Grido\DataSources;
 
 use Grido\Exception;
+use Nette\SmartObject;
 
 /**
  * Dibi Fluent data source.
@@ -26,165 +27,167 @@ use Grido\Exception;
  * @property-read int $count
  * @property-read array $data
  */
-class DibiFluent extends \Nette\Object implements IDataSource
+class DibiFluent implements IDataSource
 {
-    /** @var \DibiFluent */
-    protected $fluent;
+	use SmartObject;
 
-    /** @var int */
-    protected $limit;
+	/** @var \DibiFluent */
+	protected $fluent;
 
-    /** @var int */
-    protected $offset;
+	/** @var int */
+	protected $limit;
 
-    /**
-     * @param \DibiFluent $fluent
-     */
-    public function __construct(\DibiFluent $fluent)
-    {
-        $this->fluent = $fluent;
-    }
+	/** @var int */
+	protected $offset;
 
-    /**
-     * @return \DibiFluent
-     */
-    public function getFluent()
-    {
-        return $this->fluent;
-    }
+	/**
+	 * @param \DibiFluent $fluent
+	 */
+	public function __construct(\DibiFluent $fluent)
+	{
+		$this->fluent = $fluent;
+	}
 
-    /**
-     * @return int
-     */
-    public function getLimit()
-    {
-        return $this->limit;
-    }
+	/**
+	 * @return \DibiFluent
+	 */
+	public function getFluent()
+	{
+		return $this->fluent;
+	}
 
-    /**
-     * @return int
-     */
-    public function getOffset()
-    {
-        return $this->offset;
-    }
+	/**
+	 * @return int
+	 */
+	public function getLimit()
+	{
+		return $this->limit;
+	}
 
-    /**
-     * @param \Grido\Components\Filters\Condition $condition
-     * @param \DibiFluent $fluent
-     */
-    protected function makeWhere(\Grido\Components\Filters\Condition $condition, \DibiFluent $fluent = NULL)
-    {
-        $fluent = $fluent === NULL
-            ? $this->fluent
-            : $fluent;
+	/**
+	 * @return int
+	 */
+	public function getOffset()
+	{
+		return $this->offset;
+	}
 
-        if ($condition->callback) {
-            call_user_func_array($condition->callback, array($condition->value, $fluent));
-        } else {
-            call_user_func_array(array($fluent, 'where'), $condition->__toArray('[', ']'));
-        }
-    }
+	/**
+	 * @param \Grido\Components\Filters\Condition $condition
+	 * @param \DibiFluent $fluent
+	 */
+	protected function makeWhere(\Grido\Components\Filters\Condition $condition, \DibiFluent $fluent = NULL)
+	{
+		$fluent = $fluent === NULL
+			? $this->fluent
+			: $fluent;
 
-    /********************************** inline editation helpers ************************************/
+		if ($condition->callback) {
+			call_user_func_array($condition->callback, array($condition->value, $fluent));
+		} else {
+			call_user_func_array(array($fluent, 'where'), $condition->__toArray('[', ']'));
+		}
+	}
 
-    /**
-     * Default callback used when an editable column has customRender.
-     * @param mixed $id
-     * @param string $idCol
-     * @return \DibiRow
-     */
-    public function getRow($id, $idCol)
-    {
-        $fluent = clone $this->fluent;
-        return $fluent
-            ->where("%n = %s", $idCol, $id)
-            ->fetch();
-    }
+	/********************************** inline editation helpers ************************************/
 
-    /*********************************** interface IDataSource ************************************/
+	/**
+	 * Default callback used when an editable column has customRender.
+	 * @param mixed $id
+	 * @param string $idCol
+	 * @return \DibiRow
+	 */
+	public function getRow($id, $idCol)
+	{
+		$fluent = clone $this->fluent;
+		return $fluent
+			->where("%n = %s", $idCol, $id)
+			->fetch();
+	}
 
-    /**
-     * @return int
-     */
-    public function getCount()
-    {
-        $fluent = clone $this->fluent;
-        return $fluent->count();
-    }
+	/*********************************** interface IDataSource ************************************/
 
-    /**
-     * @return array
-     */
-    public function getData()
-    {
-        return $this->fluent->fetchAll($this->offset, $this->limit);
-    }
+	/**
+	 * @return int
+	 */
+	public function getCount()
+	{
+		$fluent = clone $this->fluent;
+		return $fluent->count();
+	}
 
-    /**
-     * @param array $conditions
-     */
-    public function filter(array $conditions)
-    {
-        foreach ($conditions as $condition) {
-            $this->makeWhere($condition);
-        }
-    }
+	/**
+	 * @return array
+	 */
+	public function getData()
+	{
+		return $this->fluent->fetchAll($this->offset, $this->limit);
+	}
 
-    /**
-     * @param int $offset
-     * @param int $limit
-     */
-    public function limit($offset, $limit)
-    {
-        $this->offset = $offset;
-        $this->limit = $limit;
-    }
+	/**
+	 * @param array $conditions
+	 */
+	public function filter(array $conditions)
+	{
+		foreach ($conditions as $condition) {
+			$this->makeWhere($condition);
+		}
+	}
 
-    /**
-     * @param array $sorting
-     */
-    public function sort(array $sorting)
-    {
-        foreach ($sorting as $column => $sort) {
-            $this->fluent->orderBy("%n", $column, $sort);
-        }
-    }
+	/**
+	 * @param int $offset
+	 * @param int $limit
+	 */
+	public function limit($offset, $limit)
+	{
+		$this->offset = $offset;
+		$this->limit = $limit;
+	}
 
-    /**
-     * @param mixed $column
-     * @param array $conditions
-     * @param int $limit
-     * @return array
-     * @throws Exception
-     */
-    public function suggest($column, array $conditions, $limit)
-    {
-        $fluent = clone $this->fluent;
-        if (is_string($column)) {
-            $fluent->removeClause('SELECT')->select("DISTINCT %n", $column)->orderBy("%n", $column, 'ASC');
-        }
+	/**
+	 * @param array $sorting
+	 */
+	public function sort(array $sorting)
+	{
+		foreach ($sorting as $column => $sort) {
+			$this->fluent->orderBy("%n", $column, $sort);
+		}
+	}
 
-        foreach ($conditions as $condition) {
-            $this->makeWhere($condition, $fluent);
-        }
+	/**
+	 * @param mixed $column
+	 * @param array $conditions
+	 * @param int $limit
+	 * @return array
+	 * @throws Exception
+	 */
+	public function suggest($column, array $conditions, $limit)
+	{
+		$fluent = clone $this->fluent;
+		if (is_string($column)) {
+			$fluent->removeClause('SELECT')->select("DISTINCT %n", $column)->orderBy("%n", $column, 'ASC');
+		}
 
-        $items = array();
-        $data = $fluent->fetchAll(0, $limit);
-        foreach ($data as $row) {
-            if (is_string($column)) {
-                $value = (string) $row[$column];
-            } elseif (is_callable($column)) {
-                $value = (string) $column($row);
-            } else {
-                $type = gettype($column);
-                throw new Exception("Column of suggestion must be string or callback, $type given.");
-            }
+		foreach ($conditions as $condition) {
+			$this->makeWhere($condition, $fluent);
+		}
 
-            $items[$value] = \Latte\Runtime\Filters::escapeHtml($value);
-        }
+		$items = array();
+		$data = $fluent->fetchAll(0, $limit);
+		foreach ($data as $row) {
+			if (is_string($column)) {
+				$value = (string) $row[$column];
+			} elseif (is_callable($column)) {
+				$value = (string) $column($row);
+			} else {
+				$type = gettype($column);
+				throw new Exception("Column of suggestion must be string or callback, $type given.");
+			}
 
-        is_callable($column) && sort($items);
-        return array_values($items);
-    }
+			$items[$value] = \Latte\Runtime\Filters::escapeHtml($value);
+		}
+
+		is_callable($column) && sort($items);
+		return array_values($items);
+	}
 }

@@ -14,6 +14,7 @@ namespace Grido\DataSources;
 use Grido\Exception;
 use Grido\Components\Filters\Condition;
 
+use Nette\SmartObject;
 use Nette\Utils\Strings;
 
 /**
@@ -27,202 +28,204 @@ use Nette\Utils\Strings;
  * @property-read array $data
  * @property-read int $count
  */
-class ArraySource extends \Nette\Object implements IDataSource
+class ArraySource implements IDataSource
 {
-    /** @var array */
-    protected $data;
+	use SmartObject;
 
-    /**
-     * @param array $data
-     */
-    public function __construct(array $data)
-    {
-        $this->data = $data;
-    }
+	/** @var array */
+	protected $data;
 
-    /**
-     * @param Condition $condition
-     * @param array $data
-     * @return array
-     */
-    protected function makeWhere(Condition $condition, array $data = NULL)
-    {
-        $data = $data === NULL
-            ? $this->data
-            : $data;
+	/**
+	 * @param array $data
+	 */
+	public function __construct(array $data)
+	{
+		$this->data = $data;
+	}
 
-        $that = $this;
-        return array_filter($data, function ($row) use ($condition, $that) {
-            if ($condition->callback) {
-                return call_user_func_array($condition->callback, array($condition->value, $row));
-            }
+	/**
+	 * @param Condition $condition
+	 * @param array $data
+	 * @return array
+	 */
+	protected function makeWhere(Condition $condition, array $data = NULL)
+	{
+		$data = $data === NULL
+			? $this->data
+			: $data;
 
-            $i = 0;
-            $results = array();
-            foreach ($condition->column as $column) {
-                if (Condition::isOperator($column)) {
-                    $results[] = " $column ";
+		$that = $this;
+		return array_filter($data, function ($row) use ($condition, $that) {
+			if ($condition->callback) {
+				return call_user_func_array($condition->callback, array($condition->value, $row));
+			}
 
-                } else {
-                    $i = count($condition->condition) > 1 ? $i : 0;
-                    $results[] = (int) $that->compare(
-                        $row[$column],
-                        $condition->condition[$i],
-                        isset($condition->value[$i]) ? $condition->value[$i] : NULL
-                    );
+			$i = 0;
+			$results = array();
+			foreach ($condition->column as $column) {
+				if (Condition::isOperator($column)) {
+					$results[] = " $column ";
 
-                    $i++;
-                }
-            }
+				} else {
+					$i = count($condition->condition) > 1 ? $i : 0;
+					$results[] = (int) $that->compare(
+						$row[$column],
+						$condition->condition[$i],
+						isset($condition->value[$i]) ? $condition->value[$i] : NULL
+					);
 
-            $result = implode('', $results);
-            return count($condition->column) === 1
-                ? (bool) $result
-                : eval("return $result;");
-        });
-    }
+					$i++;
+				}
+			}
 
-    /**
-     * @param string $actual
-     * @param string $condition
-     * @param mixed $expected
-     * @throws Exception
-     * @return bool
-     */
-    public function compare($actual, $condition, $expected)
-    {
-        $expected = (array) $expected;
-        $expected = current($expected);
-        $cond = str_replace(' ?', '', $condition);
+			$result = implode('', $results);
+			return count($condition->column) === 1
+				? (bool) $result
+				: eval("return $result;");
+		});
+	}
 
-        if ($cond === 'LIKE') {
-            $actual = Strings::toAscii($actual);
-            $expected = Strings::toAscii($expected);
+	/**
+	 * @param string $actual
+	 * @param string $condition
+	 * @param mixed $expected
+	 * @throws Exception
+	 * @return bool
+	 */
+	public function compare($actual, $condition, $expected)
+	{
+		$expected = (array) $expected;
+		$expected = current($expected);
+		$cond = str_replace(' ?', '', $condition);
 
-            $pattern = str_replace('%', '(.|\s)*', preg_quote($expected, '/'));
-            return (bool) preg_match("/^{$pattern}$/i", $actual);
+		if ($cond === 'LIKE') {
+			$actual = Strings::toAscii($actual);
+			$expected = Strings::toAscii($expected);
 
-        } elseif ($cond === '=') {
-            return $actual == $expected;
+			$pattern = str_replace('%', '(.|\s)*', preg_quote($expected, '/'));
+			return (bool) preg_match("/^{$pattern}$/i", $actual);
 
-        } elseif ($cond === '<>') {
-            return $actual != $expected;
+		} elseif ($cond === '=') {
+			return $actual == $expected;
 
-        } elseif ($cond === 'IS NULL') {
-            return $actual === NULL;
+		} elseif ($cond === '<>') {
+			return $actual != $expected;
 
-        } elseif ($cond === 'IS NOT NULL') {
-            return $actual !== NULL;
+		} elseif ($cond === 'IS NULL') {
+			return $actual === NULL;
 
-        } elseif (in_array($cond, array('<', '<=', '>', '>='))) {
-            $actual = (int) $actual;
-            return eval("return {$actual} {$cond} {$expected};");
+		} elseif ($cond === 'IS NOT NULL') {
+			return $actual !== NULL;
 
-        } else {
-            throw new Exception("Condition '$condition' not implemented yet.");
-        }
-    }
+		} elseif (in_array($cond, array('<', '<=', '>', '>='))) {
+			$actual = (int) $actual;
+			return eval("return {$actual} {$cond} {$expected};");
 
-    /*********************************** interface IDataSource ************************************/
+		} else {
+			throw new Exception("Condition '$condition' not implemented yet.");
+		}
+	}
 
-    /**
-     * @return int
-     */
-    public function getCount()
-    {
-        return count($this->data);
-    }
+	/*********************************** interface IDataSource ************************************/
 
-    /**
-     * @return array
-     */
-    public function getData()
-    {
-        return $this->data;
-    }
+	/**
+	 * @return int
+	 */
+	public function getCount()
+	{
+		return count($this->data);
+	}
 
-    /**
-     * @param array $conditions
-     */
-    public function filter(array $conditions)
-    {
-        foreach ($conditions as $condition) {
-            $this->data = $this->makeWhere($condition);
-        }
-    }
+	/**
+	 * @return array
+	 */
+	public function getData()
+	{
+		return $this->data;
+	}
 
-    /**
-     * @param int $offset
-     * @param int $limit
-     */
-    public function limit($offset, $limit)
-    {
-        $this->data = array_slice($this->data, $offset, $limit);
-    }
+	/**
+	 * @param array $conditions
+	 */
+	public function filter(array $conditions)
+	{
+		foreach ($conditions as $condition) {
+			$this->data = $this->makeWhere($condition);
+		}
+	}
 
-    /**
-     * @param array $sorting
-     * @throws Exception
-     */
-    public function sort(array $sorting)
-    {
-        if (count($sorting) > 1) {
-            throw new Exception('Multi-column sorting is not implemented yet.');
-        }
+	/**
+	 * @param int $offset
+	 * @param int $limit
+	 */
+	public function limit($offset, $limit)
+	{
+		$this->data = array_slice($this->data, $offset, $limit);
+	}
 
-        foreach ($sorting as $column => $sort) {
-            $data = array();
-            foreach ($this->data as $item) {
-                $sorter = (string) $item[$column];
-                $data[$sorter][] = $item;
-            }
+	/**
+	 * @param array $sorting
+	 * @throws Exception
+	 */
+	public function sort(array $sorting)
+	{
+		if (count($sorting) > 1) {
+			throw new Exception('Multi-column sorting is not implemented yet.');
+		}
 
-            if ($sort === 'ASC') {
-                ksort($data);
-            } else {
-                krsort($data);
-            }
+		foreach ($sorting as $column => $sort) {
+			$data = array();
+			foreach ($this->data as $item) {
+				$sorter = (string) $item[$column];
+				$data[$sorter][] = $item;
+			}
 
-            $this->data = array();
-            foreach ($data as $i) {
-                foreach ($i as $item) {
-                    $this->data[] = $item;
-                }
-            }
-        }
-    }
+			if ($sort === 'ASC') {
+				ksort($data);
+			} else {
+				krsort($data);
+			}
 
-    /**
-     * @param mixed $column
-     * @param array $conditions
-     * @param int $limit
-     * @return array
-     * @throws Exception
-     */
-    public function suggest($column, array $conditions, $limit)
-    {
-        $data = $this->data;
-        foreach ($conditions as $condition) {
-            $data = $this->makeWhere($condition, $data);
-        }
+			$this->data = array();
+			foreach ($data as $i) {
+				foreach ($i as $item) {
+					$this->data[] = $item;
+				}
+			}
+		}
+	}
 
-        array_slice($data, 1, $limit);
+	/**
+	 * @param mixed $column
+	 * @param array $conditions
+	 * @param int $limit
+	 * @return array
+	 * @throws Exception
+	 */
+	public function suggest($column, array $conditions, $limit)
+	{
+		$data = $this->data;
+		foreach ($conditions as $condition) {
+			$data = $this->makeWhere($condition, $data);
+		}
 
-        $items = array();
-        foreach ($data as $row) {
-            if (is_string($column)) {
-                $value = (string) $row[$column];
-            } elseif (is_callable($column)) {
-                $value = (string) $column($row);
-            } else {
-                $type = gettype($column);
-                throw new Exception("Column of suggestion must be string or callback, $type given.");
-            }
+		array_slice($data, 1, $limit);
 
-            $items[$value] = \Latte\Runtime\Filters::escapeHtml($value);
-        }
+		$items = array();
+		foreach ($data as $row) {
+			if (is_string($column)) {
+				$value = (string) $row[$column];
+			} elseif (is_callable($column)) {
+				$value = (string) $column($row);
+			} else {
+				$type = gettype($column);
+				throw new Exception("Column of suggestion must be string or callback, $type given.");
+			}
 
-        sort($items);
-        return array_values($items);
-    }
+			$items[$value] = \Latte\Runtime\Filters::escapeHtml($value);
+		}
+
+		sort($items);
+		return array_values($items);
+	}
 }
